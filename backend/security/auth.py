@@ -69,6 +69,20 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> CurrentUser:
     return CurrentUser(sub=sub, role=role)
 
 
+async def get_current_user_sse(
+    token: Optional[str] = None,
+    bearer: str = Depends(oauth2_scheme),
+) -> CurrentUser:
+    """Accepts JWT from Authorization header OR ?token= query param (EventSource can't set headers)."""
+    raw = token or bearer
+    payload = decode_token(raw)
+    sub = payload.get("sub")
+    role = payload.get("role", "analyst")
+    if not sub:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
+    return CurrentUser(sub=sub, role=role)
+
+
 def require_role(*allowed: str):
     async def _check(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
         if user.role.value not in allowed:

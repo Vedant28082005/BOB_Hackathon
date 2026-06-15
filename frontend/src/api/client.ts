@@ -171,36 +171,85 @@ export async function waitForResult(
   onProgress?: (stage: string, pct: number) => void,
   maxWaitMs = 120_000,
 ): Promise<AssessmentResult> {
-  const start = Date.now()
-
   return new Promise((resolve, reject) => {
-    const cleanup = streamProgress(
+    let done = false
+    let timeoutId: ReturnType<typeof setTimeout>
+    let sseCleanup: (() => void) | null = null
+    let pollInterval: ReturnType<typeof setInterval> | null = null
+
+    const finish = (fn: () => void) => {
+      if (done) return
+      done = true
+      clearTimeout(timeoutId)
+      sseCleanup?.()
+      if (pollInterval) clearInterval(pollInterval)
+      fn()
+    }
+
+    // Poll job status every 2s regardless — progress display + result detection
+    let lastPct = 0
+    pollInterval = setInterval(async () => {
+      try {
+        const status = await pollJobStatus(jobId)
+        if (status.pct > lastPct) {
+          lastPct = status.pct
+          onProgress?.(status.stage, status.pct)
+        }
+        if (status.pct >= 100 || status.stage === 'COMPLETE' || status.stage === 'FAILED') {
+          clearInterval(pollInterval!)
+          pollInterval = null
+          // Fetch result
+          for (let i = 0; i < 20; i++) {
+            try {
+              const result = await getAssessmentResult(jobId)
+              finish(() => resolve(result))
+              return
+            } catch (e) {
+              if ((e as Error).message === 'PENDING') {
+                await new Promise(r => setTimeout(r, 1000))
+                continue
+              }
+              finish(() => reject(e))
+              return
+            }
+          }
+          finish(() => reject(new Error('Result not available')))
+        }
+      } catch (_) {
+        // polling error — keep trying
+      }
+    }, 2000)
+
+    // SSE for faster updates (may fail on some proxies — polling is the fallback)
+    sseCleanup = streamProgress(
       jobId,
-      (status) => onProgress?.(status.stage, status.pct),
+      (status) => {
+        onProgress?.(status.stage, status.pct)
+        lastPct = Math.max(lastPct, status.pct)
+      },
       async () => {
-        // SSE complete — fetch result
-        for (let i = 0; i < 10; i++) {
+        // SSE signalled done — stop poll interval and fetch result
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
+        for (let i = 0; i < 20; i++) {
           try {
             const result = await getAssessmentResult(jobId)
-            resolve(result)
+            finish(() => resolve(result))
             return
           } catch (e) {
             if ((e as Error).message === 'PENDING') {
-              await new Promise(r => setTimeout(r, 500))
+              await new Promise(r => setTimeout(r, 1000))
               continue
             }
-            reject(e)
+            finish(() => reject(e))
             return
           }
         }
-        reject(new Error('Result not available after pipeline completion'))
+        finish(() => reject(new Error('Result not available')))
       },
     )
 
-    // Timeout guard
-    setTimeout(() => {
-      cleanup()
-      reject(new Error('Assessment timed out'))
+    timeoutId = setTimeout(() => {
+      finish(() => reject(new Error('Assessment timed out after 2 minutes')))
     }, maxWaitMs)
   })
 }

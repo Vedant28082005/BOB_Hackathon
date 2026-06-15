@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from config import settings
-from security.auth import get_current_user, CurrentUser
+from security.auth import get_current_user, get_current_user_sse, CurrentUser
 from storage.redis_client import get_job_status, set_job_status, rate_limit_check, get_redis
 from tasks.assessment_pipeline import run_assessment_pipeline
 
@@ -91,7 +91,7 @@ async def get_status(job_id: str, _: CurrentUser = Depends(get_current_user)):
 
 
 @router.get("/{job_id}/stream")
-async def stream_progress(job_id: str, _: CurrentUser = Depends(get_current_user)):
+async def stream_progress(job_id: str, _: CurrentUser = Depends(get_current_user_sse)):
     async def _gen() -> AsyncIterator[str]:
         r = await get_redis()
         pubsub = r.pubsub()
