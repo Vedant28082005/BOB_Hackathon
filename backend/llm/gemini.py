@@ -10,7 +10,7 @@ key is missing or the API call fails.
 from __future__ import annotations
 import json
 from config import GEMINI_API_KEY
-GEMINI_MODEL = "gemini-1.5-flash"
+GEMINI_MODEL = "gemini-2.0-flash"
 
 
 def _template_explanation(
