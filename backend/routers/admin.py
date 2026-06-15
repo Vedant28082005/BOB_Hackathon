@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from security.auth import require_role, CurrentUser
 from config import settings
+from graph.neo4j_client import clear_graph
 
 router = APIRouter()
 
@@ -46,3 +47,13 @@ async def update_config(update: ConfigUpdate,
     if update.thresholds:
         _runtime_config["thresholds"].update(update.thresholds)
     return {"status": "updated", "config": _runtime_config}
+
+
+@router.post("/graph/reset")
+async def reset_identity_graph(
+    user: CurrentUser = Depends(require_role("admin", "analyst")),
+):
+    """Wipe the identity graph — demo control so re-submitted test identities
+    are not flagged as duplicates/ring members of earlier runs."""
+    removed = await clear_graph()
+    return {"status": "ok", "nodes_removed": removed}

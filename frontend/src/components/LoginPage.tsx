@@ -97,8 +97,14 @@ export default function LoginPage({ onLogin, sessionExpired }: Props) {
         </form>
 
         {/* Demo credentials */}
-        <div className="mt-4 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 font-mono">Demo accounts</p>
+        <div className="mt-4 rounded-xl border border-blue-800/50 bg-blue-950/20 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] text-blue-300 uppercase tracking-wider font-mono">Demo accounts</p>
+            <span className="text-[10px] text-blue-400/80 font-medium">👆 Tap to auto-fill</span>
+          </div>
+          <p className="text-[11px] text-slate-400 mb-3 leading-snug">
+            Judges: tap any account below to fill the login form automatically, then press <span className="text-slate-200 font-medium">Sign in</span>.
+          </p>
           <div className="space-y-1">
             {[
               ['analyst@trustlayer.in', 'analyst123', 'analyst'],
@@ -106,9 +112,9 @@ export default function LoginPage({ onLogin, sessionExpired }: Props) {
               ['auditor@trustlayer.in', 'auditor123', 'auditor'],
             ].map(([e, p, role]) => (
               <button key={role} onClick={() => fill(e, p)}
-                className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors text-left">
-                <span className="text-xs text-slate-400 font-mono">{e}</span>
-                <span className="text-[10px] text-slate-600 bg-slate-800 px-2 py-0.5 rounded font-mono">{role}</span>
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-slate-800 hover:border-blue-600/60 hover:bg-slate-800 transition-colors text-left group">
+                <span className="text-xs text-slate-300 font-mono group-hover:text-blue-300">{e}</span>
+                <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded font-mono">{role}</span>
               </button>
             ))}
           </div>

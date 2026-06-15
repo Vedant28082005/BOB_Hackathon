@@ -54,6 +54,20 @@ async def close_driver() -> None:
         _driver = None
 
 
+async def clear_graph() -> int:
+    """Delete every node and relationship in the graph. Returns nodes removed.
+
+    Demo utility: wipes prior test identities so a re-submitted applicant is no
+    longer matched against earlier runs as a duplicate / ring member.
+    """
+    driver = await get_driver()
+    async with driver.session() as s:
+        rec = await (await s.run("MATCH (n) RETURN count(n) AS c")).single()
+        count = rec["c"] if rec else 0
+        await s.run("MATCH (n) DETACH DELETE n")
+        return int(count)
+
+
 async def init_schema() -> None:
     """Create indexes and constraints on first boot."""
     driver = await get_driver()

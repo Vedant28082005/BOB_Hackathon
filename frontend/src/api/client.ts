@@ -300,3 +300,16 @@ export async function fetchAuditLog(limit = 50): Promise<{ entries: unknown[] }>
   if (!resp.ok) throw new Error('Audit fetch failed')
   return resp.json()
 }
+
+// ── Demo control: wipe the identity graph (analyst/admin only) ─────────────────
+export async function resetIdentityGraph(): Promise<{ nodes_removed: number }> {
+  const resp = await _authedFetch(`${BASE}/v1/admin/graph/reset`, {
+    method: 'POST',
+    headers: _authHeaders(),
+  })
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: resp.statusText }))
+    throw new Error(err.detail ?? 'Reset failed')
+  }
+  return resp.json()
+}

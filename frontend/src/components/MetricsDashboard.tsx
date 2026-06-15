@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Shield, CheckCircle, AlertTriangle, XCircle, Activity, Clock, TrendingUp, Users } from 'lucide-react'
+import { Shield, CheckCircle, AlertTriangle, XCircle, Activity, Clock, TrendingUp, Users, RotateCcw } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { fetchMetrics } from '../api/client'
+import { fetchMetrics, resetIdentityGraph } from '../api/client'
 import type { MetricsData } from '../types'
 
 interface Props { onStart: () => void }
@@ -10,6 +10,22 @@ interface Props { onStart: () => void }
 export default function MetricsDashboard({ onStart }: Props) {
   const [metrics, setMetrics] = useState<MetricsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [resetting, setResetting] = useState(false)
+  const [resetMsg, setResetMsg] = useState('')
+
+  const handleResetGraph = async () => {
+    if (!window.confirm('Wipe the identity graph? This clears all prior test identities so your details are no longer flagged as a duplicate/ring member.')) return
+    setResetting(true)
+    setResetMsg('')
+    try {
+      const { nodes_removed } = await resetIdentityGraph()
+      setResetMsg(`Identity graph cleared — removed ${nodes_removed} node(s).`)
+    } catch (e) {
+      setResetMsg(e instanceof Error ? e.message : 'Reset failed')
+    } finally {
+      setResetting(false)
+    }
+  }
 
   useEffect(() => {
     fetchMetrics().then(m => { setMetrics(m); setLoading(false) }).catch(() => setLoading(false))
@@ -147,6 +163,20 @@ export default function MetricsDashboard({ onStart }: Props) {
           >
             Start Assessment →
           </button>
+
+          {/* Demo control: reset the identity graph so re-submissions aren't
+              flagged as duplicates of earlier test runs */}
+          <button
+            onClick={handleResetGraph}
+            disabled={resetting}
+            className="mt-2 w-full py-2 rounded-lg border border-slate-700 hover:border-slate-500 disabled:opacity-50 transition-colors text-slate-400 hover:text-slate-200 text-xs font-medium flex items-center justify-center gap-1.5"
+          >
+            <RotateCcw size={12} className={resetting ? 'animate-spin' : ''} />
+            {resetting ? 'Resetting…' : 'Reset Identity Graph (demo)'}
+          </button>
+          {resetMsg && (
+            <p className="mt-2 text-[11px] text-center text-slate-400">{resetMsg}</p>
+          )}
         </motion.div>
       </div>
     </div>
