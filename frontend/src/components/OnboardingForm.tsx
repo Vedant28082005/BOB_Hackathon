@@ -274,9 +274,10 @@ export default function OnboardingForm({ onResult, onProgress, onBack }: Props) 
                   </div>
                 ) : camActive ? (
                   /* Live camera feed */
-                  <div className="relative rounded-xl overflow-hidden border border-blue-600/50 bg-black">
+                  <div className="relative rounded-xl overflow-hidden border border-blue-600/50 bg-black" style={{ minHeight: '280px' }}>
                     <video ref={videoRef} autoPlay muted playsInline
-                      className="w-full max-h-72 object-contain mirror" style={{ transform: 'scaleX(-1)' }} />
+                      className="w-full block"
+                      style={{ transform: 'scaleX(-1)', minHeight: '280px', objectFit: 'cover' }} />
                     <div className="absolute inset-0 pointer-events-none">
                       {/* Face oval guide */}
                       <div className="absolute inset-0 flex items-center justify-center">
