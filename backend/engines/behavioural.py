@@ -8,12 +8,11 @@ from __future__ import annotations
 import statistics
 from dataclasses import dataclass, field
 from models import BehaviouralSignals
-from config import (
-    BOT_KEYSTROKE_INTERVAL_MS,
-    BOT_CONSISTENCY_STD_THRESHOLD,
-    MIN_FORM_FILL_SECONDS,
-    MAX_PASTE_EVENTS,
-)
+
+BOT_KEYSTROKE_INTERVAL_MS = 80        # ms — humans rarely type faster
+BOT_CONSISTENCY_STD_THRESHOLD = 15.0  # ms std-dev — bots are unnaturally consistent
+MIN_FORM_FILL_SECONDS = 5             # seconds — too fast = bot
+MAX_PASTE_EVENTS = 3                  # paste > 3 is suspicious
 
 
 @dataclass
