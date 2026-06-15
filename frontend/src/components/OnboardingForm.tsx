@@ -61,10 +61,19 @@ export default function OnboardingForm({ onResult, onProgress, onBack }: Props) 
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return
     const v = videoRef.current
+    // Wait for a real frame — videoWidth=0 means stream not ready yet
+    if (!v.videoWidth || !v.videoHeight) {
+      setTimeout(capturePhoto, 200)
+      return
+    }
     const c = canvasRef.current
-    c.width = v.videoWidth || 640
-    c.height = v.videoHeight || 480
-    c.getContext('2d')!.drawImage(v, 0, 0, c.width, c.height)
+    c.width = v.videoWidth
+    c.height = v.videoHeight
+    const ctx = c.getContext('2d')!
+    // Mirror the canvas to match the mirrored video display
+    ctx.translate(c.width, 0)
+    ctx.scale(-1, 1)
+    ctx.drawImage(v, 0, 0, c.width, c.height)
     const b64 = c.toDataURL('image/jpeg', 0.92).split(',')[1]
     setCapturedSelfie(b64)
     stopCamera()

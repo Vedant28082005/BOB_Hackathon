@@ -33,7 +33,7 @@ def _get_client() -> Minio:
             _client.set_bucket_lifecycle(
                 settings.minio_bucket,
                 LifecycleConfig([Rule(
-                    ENABLED, filter=Filter(prefix="media/"),
+                    ENABLED, rule_filter=Filter(prefix="media/"),
                     rule_id="auto-purge",
                     expiration=Expiration(days=1),
                 )]),
