@@ -31,7 +31,14 @@ class BehaviouralResult:
     signals: dict = field(default_factory=dict)
 
 
-def analyse_behavioural(signals: BehaviouralSignals) -> BehaviouralResult:
+def analyse_behavioural(signals) -> BehaviouralResult:
+    if isinstance(signals, dict):
+        signals = BehaviouralSignals(
+            keystroke_intervals_ms=signals.get("keystroke_intervals_ms", []),
+            form_fill_duration_s=float(signals.get("form_fill_duration_s", 0.0)),
+            paste_events=int(signals.get("paste_events", 0)),
+            focus_losses=int(signals.get("focus_losses", 0)),
+        )
     return analyse_behaviour(signals)
 
 
