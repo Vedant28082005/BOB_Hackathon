@@ -1,6 +1,6 @@
 """Central configuration — all values from environment / .env, no secrets in code."""
 from __future__ import annotations
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -52,7 +52,11 @@ class Settings(BaseSettings):
     jwt_refresh_token_expire_days: int = 7
 
     # ── Encryption ────────────────────────────────────────────────────────────
-    aes_encryption_key: str = "0" * 64   # 32-byte hex — override in production
+    # Accept either AES_ENCRYPTION_KEY or AES_KEY_HEX (deployment/.env uses the latter).
+    aes_encryption_key: str = Field(
+        default="0" * 64,   # 32-byte hex — override in production
+        validation_alias=AliasChoices("AES_ENCRYPTION_KEY", "AES_KEY_HEX", "aes_encryption_key"),
+    )
 
     # ── LLM ──────────────────────────────────────────────────────────────────
     gemini_api_key: str = ""

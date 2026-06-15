@@ -1,5 +1,5 @@
 """OAuth2 token endpoint + user management."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
@@ -7,9 +7,12 @@ from security.auth import (
     hash_password, verify_password, create_access_token,
     create_refresh_token, decode_token,
 )
-from storage.redis_client import get_redis
+from storage.redis_client import rate_limit_check
 
 router = APIRouter()
+
+# Max failed-or-total login attempts per minute, keyed by client IP + username.
+_LOGIN_RATE_LIMIT = 10
 
 # In production: load from PostgreSQL users table via SQLModel
 _DEV_USERS = {
@@ -20,7 +23,12 @@ _DEV_USERS = {
 
 
 @router.post("/token")
-async def login(form: OAuth2PasswordRequestForm = Depends()):
+async def login(request: Request, form: OAuth2PasswordRequestForm = Depends()):
+    # Throttle brute-force attempts, keyed by client IP + attempted username.
+    client_ip = request.client.host if request.client else "unknown"
+    if not await rate_limit_check(f"login:{client_ip}:{form.username}", _LOGIN_RATE_LIMIT):
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
+                            "Too many login attempts — try again in a minute")
     user = _DEV_USERS.get(form.username)
     if not user or not verify_password(form.password, user["password"]):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials",

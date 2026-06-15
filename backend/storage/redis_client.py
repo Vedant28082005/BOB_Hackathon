@@ -50,6 +50,17 @@ async def get_job_status(job_id: str) -> Optional[dict]:
     return json.loads(v) if v else None
 
 
+async def set_job_owner(job_id: str, owner: str, ttl: int = 86400) -> None:
+    """Record which user submitted a job, for object-level authorization."""
+    r = await get_redis()
+    await r.set(f"job_owner:{job_id}", owner, ex=ttl)
+
+
+async def get_job_owner(job_id: str) -> Optional[str]:
+    r = await get_redis()
+    return await r.get(f"job_owner:{job_id}")
+
+
 async def publish_progress(job_id: str, stage: str, pct: int, detail: str = "") -> None:
     r = await get_redis()
     await r.publish(f"progress:{job_id}", json.dumps({

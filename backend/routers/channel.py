@@ -6,9 +6,12 @@ Supports webhook callback for async results.
 """
 from __future__ import annotations
 import asyncio
+import ipaddress
 import json
+import socket
 import uuid
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
@@ -43,6 +46,29 @@ def _verify_api_key(key: str) -> dict:
     return info
 
 
+def _validate_callback_url(url: str) -> None:
+    """
+    Block SSRF: the callback URL must be http(s) and must not resolve to a
+    private, loopback, link-local, or reserved address (e.g. cloud metadata
+    at 169.254.169.254 or internal services). Raises HTTPException on reject.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(400, "callback_url must use http or https")
+    host = parsed.hostname
+    if not host:
+        raise HTTPException(400, "callback_url has no host")
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        raise HTTPException(400, "callback_url host could not be resolved")
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            raise HTTPException(400, "callback_url resolves to a disallowed address")
+
+
 class ChannelAssessmentRequest(BaseModel):
     full_name: str
     email: str
@@ -72,6 +98,10 @@ async def channel_assess(
     x_tl_api_key: str = Header(...),
 ):
     channel_info = _verify_api_key(x_tl_api_key)
+
+    # SSRF guard: validate the webhook target before accepting the job.
+    if req.callback_url:
+        _validate_callback_url(req.callback_url)
 
     job_id = str(uuid.uuid4())
     applicant_id = str(uuid.uuid4())
@@ -111,7 +141,13 @@ async def _fire_webhook_when_done(job_id: str, callback_url: str, channel_info: 
                 **result.result,
             }
             try:
-                async with httpx.AsyncClient(timeout=settings.webhook_timeout_seconds) as client:
+                # Re-validate before sending (defends against DNS rebinding) and
+                # never follow redirects (which could bounce to an internal host).
+                _validate_callback_url(callback_url)
+                async with httpx.AsyncClient(
+                    timeout=settings.webhook_timeout_seconds,
+                    follow_redirects=False,
+                ) as client:
                     resp = await client.post(callback_url, json=payload)
                     resp.raise_for_status()
             except Exception as e:

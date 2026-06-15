@@ -15,8 +15,26 @@ from storage.redis_client import get_redis
 log = structlog.get_logger(__name__)
 
 
+def _assert_secure_config() -> None:
+    """Refuse to start in production with insecure default secrets."""
+    if settings.environment != "production":
+        return
+    problems = []
+    if settings.jwt_secret_key == "CHANGE_THIS_SECRET_IN_PRODUCTION_USE_256_BIT_RANDOM":
+        problems.append("JWT_SECRET_KEY is the built-in default")
+    if set(settings.aes_encryption_key) == {"0"}:
+        problems.append("AES encryption key is all zeros (set AES_KEY_HEX)")
+    if settings.debug:
+        problems.append("DEBUG must be false in production")
+    if problems:
+        raise RuntimeError(
+            "Insecure production configuration: " + "; ".join(problems)
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _assert_secure_config()
     log.info("trustlayer_backend_starting", version=settings.app_version, env=settings.environment)
     await init_db()
     await init_schema()

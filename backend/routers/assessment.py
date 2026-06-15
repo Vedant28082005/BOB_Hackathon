@@ -11,10 +11,27 @@ from pydantic import BaseModel, Field
 
 from config import settings
 from security.auth import get_current_user, get_current_user_sse, CurrentUser
-from storage.redis_client import get_job_status, set_job_status, rate_limit_check, get_redis
+from security.rbac import Role
+from storage.redis_client import (
+    get_job_status, set_job_status, rate_limit_check, get_redis,
+    set_job_owner, get_job_owner,
+)
 from tasks.assessment_pipeline import run_assessment_pipeline
 
 router = APIRouter()
+
+# Oversight roles may view any job; analysts are restricted to their own.
+_OVERSIGHT_ROLES = {Role.admin, Role.auditor}
+
+
+async def _assert_job_owner(job_id: str, user: CurrentUser) -> None:
+    """Object-level authorization: reject access to jobs the user does not own."""
+    if user.role in _OVERSIGHT_ROLES:
+        return
+    owner = await get_job_owner(job_id)
+    # If ownership is unknown (expired/legacy) we fail closed for non-oversight roles.
+    if owner is None or owner != user.sub:
+        raise HTTPException(403, "Not authorized to access this assessment")
 
 
 class AssessmentRequest(BaseModel):
@@ -72,6 +89,7 @@ async def submit_assessment(
 
     run_assessment_pipeline.apply_async(args=[job_id, task_payload], task_id=job_id)
     await set_job_status(job_id, {"stage": "QUEUED", "pct": 0, "detail": "Pipeline queued"})
+    await set_job_owner(job_id, user.sub)
 
     return {
         "job_id": job_id,
@@ -83,7 +101,8 @@ async def submit_assessment(
 
 
 @router.get("/{job_id}/status")
-async def get_status(job_id: str, _: CurrentUser = Depends(get_current_user)):
+async def get_status(job_id: str, user: CurrentUser = Depends(get_current_user)):
+    await _assert_job_owner(job_id, user)
     s = await get_job_status(job_id)
     if not s:
         raise HTTPException(404, "Job not found")
@@ -91,7 +110,8 @@ async def get_status(job_id: str, _: CurrentUser = Depends(get_current_user)):
 
 
 @router.get("/{job_id}/stream")
-async def stream_progress(job_id: str, _: CurrentUser = Depends(get_current_user_sse)):
+async def stream_progress(job_id: str, user: CurrentUser = Depends(get_current_user_sse)):
+    await _assert_job_owner(job_id, user)
     async def _gen() -> AsyncIterator[str]:
         r = await get_redis()
         pubsub = r.pubsub()
@@ -109,7 +129,8 @@ async def stream_progress(job_id: str, _: CurrentUser = Depends(get_current_user
 
 
 @router.get("/{job_id}/result")
-async def get_result(job_id: str, _: CurrentUser = Depends(get_current_user)):
+async def get_result(job_id: str, user: CurrentUser = Depends(get_current_user)):
+    await _assert_job_owner(job_id, user)
     from celery.result import AsyncResult
     from tasks.assessment_pipeline import celery_app
 
