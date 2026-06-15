@@ -7,8 +7,8 @@ client-side.  Returns a score and structured flags.
 from __future__ import annotations
 import statistics
 from dataclasses import dataclass, field
-from backend.models import BehaviouralSignals
-from backend.config import (
+from models import BehaviouralSignals
+from config import (
     BOT_KEYSTROKE_INTERVAL_MS,
     BOT_CONSISTENCY_STD_THRESHOLD,
     MIN_FORM_FILL_SECONDS,

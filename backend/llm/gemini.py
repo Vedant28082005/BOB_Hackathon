@@ -9,7 +9,7 @@ key is missing or the API call fails.
 """
 from __future__ import annotations
 import json
-from backend.config import GEMINI_API_KEY, GEMINI_MODEL
+from config import GEMINI_API_KEY, GEMINI_MODEL
 
 
 def _template_explanation(
