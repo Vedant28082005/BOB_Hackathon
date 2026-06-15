@@ -204,8 +204,12 @@ def run_assessment_pipeline(self, job_id: str, request_data: dict) -> dict:
 
     # ── LLM explanation ───────────────────────────────────────────────────────
     llm_explanation = generate_explanation(
-        fusion["trust_score"], fusion["decision"], fusion["reason_codes"],
-        pipeline, request_data.get("full_name", "Applicant"),
+        fusion["trust_score"],
+        fusion["decision"],
+        fusion["risk_band"],
+        fusion["reason_codes"],
+        {k: v.get("score", 0) for k, v in pipeline.items() if isinstance(v, dict)},
+        request_data.get("full_name", "Applicant"),
     )
 
     elapsed = int((time.time() - start) * 1000)
