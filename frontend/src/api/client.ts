@@ -193,7 +193,9 @@ export async function getAssessmentResult(jobId: string): Promise<AssessmentResu
   })
   if (!resp.ok) throw new Error('Result fetch failed')
   const data = await resp.json()
-  if (data.status === 'PENDING') throw new Error('PENDING')
+  // Treat any non-SUCCESS state as not-ready — the Celery result backend may
+  // not have committed the result yet even after the progress SSE fires 100%.
+  if (data.status !== 'SUCCESS') throw new Error('PENDING')
   return data as AssessmentResult
 }
 

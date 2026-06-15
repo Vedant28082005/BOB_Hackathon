@@ -217,7 +217,9 @@ def run_assessment_pipeline(self, job_id: str, request_data: dict) -> dict:
 
     return {
         "job_id": job_id,
+        "assessment_uuid": job_id,       # alias expected by frontend type
         "applicant_id": applicant_id,
+        "applicant_uuid": applicant_id,  # alias expected by frontend type
         "trust_score": fusion["trust_score"],
         "risk_band": fusion["risk_band"],
         "decision": fusion["decision"],

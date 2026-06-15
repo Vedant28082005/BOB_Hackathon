@@ -148,7 +148,7 @@ function StageDetail({ stageKey, result }: { stageKey: string; result: Assessmen
 export default function ResultView({ result, onBack }: Props) {
   const [showPrivacy, setShowPrivacy] = useState(false)
   const [activeTab, setActiveTab] = useState<'reason' | 'pipeline' | 'graph'>('reason')
-  const cfg = DECISION_CONFIG[result.decision]
+  const cfg = DECISION_CONFIG[result.decision] ?? DECISION_CONFIG['REJECT']
   const DecisionIcon = cfg.icon
   const nonInfoCodes = result.reason_codes.filter(rc => rc.severity !== 'INFO')
 
@@ -191,7 +191,7 @@ export default function ResultView({ result, onBack }: Props) {
             <div className="flex flex-wrap gap-4 text-xs text-slate-400 font-mono">
               <div className="flex items-center gap-1.5"><Clock size={11} />{(result.processing_time_ms / 1000).toFixed(2)}s</div>
               <div className="flex items-center gap-1.5"><Shield size={11} />{nonInfoCodes.length} signal(s) flagged</div>
-              <div className="text-slate-600">{result.assessment_uuid.slice(0, 8)}…</div>
+              <div className="text-slate-600">{(result.assessment_uuid ?? (result as any).job_id ?? '').slice(0, 8)}…</div>
             </div>
           </div>
         </div>
