@@ -12,11 +12,13 @@ trustlayer.db
 *.pt
 *.bin
 
-# Environment secrets
-infra/.env
+# Environment secrets — never commit real .env files
 .env
 .env.local
+infra/.env
 *.env
+!.env.example
+!infra/.env.example
 
 # Python
 __pycache__/
