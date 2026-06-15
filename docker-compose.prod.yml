@@ -27,6 +27,7 @@ x-backend-env: &backend-env
   GEMINI_API_KEY: "${GEMINI_API_KEY}"
   ENVIRONMENT: "production"
   DEBUG: "false"
+  PYTHONPATH: "/app"
 
 services:
   # ── Infrastructure ───────────────────────────────────────────────────────────
