@@ -4,19 +4,51 @@ const BASE = '/api'
 
 // ── Auth token management ─────────────────────────────────────────────────────
 let _token: string | null = localStorage.getItem('tl_token')
+let _onUnauthorized: (() => void) | null = null
 
 export function setAuthToken(token: string) {
   _token = token
   localStorage.setItem('tl_token', token)
+  // Store expiry time (55 min to give buffer before 60 min server expiry)
+  const expiry = Date.now() + 55 * 60 * 1000
+  localStorage.setItem('tl_token_expiry', String(expiry))
 }
 
 export function clearAuthToken() {
   _token = null
   localStorage.removeItem('tl_token')
+  localStorage.removeItem('tl_token_expiry')
+}
+
+export function isTokenExpired(): boolean {
+  const expiry = localStorage.getItem('tl_token_expiry')
+  if (!expiry) return true
+  return Date.now() > Number(expiry)
+}
+
+/** Register a callback to fire when any authenticated request returns 401. */
+export function onUnauthorized(cb: () => void) {
+  _onUnauthorized = cb
 }
 
 function _authHeaders(): Record<string, string> {
   return _token ? { Authorization: `Bearer ${_token}` } : {}
+}
+
+async function _authedFetch(url: string, opts: RequestInit = {}): Promise<Response> {
+  // Proactively log out if token is already expired
+  if (_token && isTokenExpired()) {
+    clearAuthToken()
+    _onUnauthorized?.()
+    throw new Error('Session expired — please log in again')
+  }
+  const resp = await fetch(url, opts)
+  if (resp.status === 401) {
+    clearAuthToken()
+    _onUnauthorized?.()
+    throw new Error('Session expired — please log in again')
+  }
+  return resp
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
@@ -101,7 +133,7 @@ export interface SubmitPayload {
 }
 
 export async function submitAssessment(payload: SubmitPayload): Promise<{ job_id: string }> {
-  const resp = await fetch(`${BASE}/v1/assessments`, {
+  const resp = await _authedFetch(`${BASE}/v1/assessments`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ..._authHeaders() },
     body: JSON.stringify(payload),
@@ -121,7 +153,7 @@ export interface JobStatus {
 }
 
 export async function pollJobStatus(jobId: string): Promise<JobStatus> {
-  const resp = await fetch(`${BASE}/v1/assessments/${jobId}/status`, {
+  const resp = await _authedFetch(`${BASE}/v1/assessments/${jobId}/status`, {
     headers: _authHeaders(),
   })
   if (!resp.ok) throw new Error('Status poll failed')
@@ -156,7 +188,7 @@ export function streamProgress(
 
 // ── Get result ────────────────────────────────────────────────────────────────
 export async function getAssessmentResult(jobId: string): Promise<AssessmentResult> {
-  const resp = await fetch(`${BASE}/v1/assessments/${jobId}/result`, {
+  const resp = await _authedFetch(`${BASE}/v1/assessments/${jobId}/result`, {
     headers: _authHeaders(),
   })
   if (!resp.ok) throw new Error('Result fetch failed')
@@ -256,13 +288,13 @@ export async function waitForResult(
 
 // ── Other endpoints ───────────────────────────────────────────────────────────
 export async function fetchMetrics(): Promise<MetricsData> {
-  const resp = await fetch(`${BASE}/v1/metrics`, { headers: _authHeaders() })
+  const resp = await _authedFetch(`${BASE}/v1/metrics`, { headers: _authHeaders() })
   if (!resp.ok) throw new Error('Metrics fetch failed')
   return resp.json()
 }
 
 export async function fetchAuditLog(limit = 50): Promise<{ entries: unknown[] }> {
-  const resp = await fetch(`${BASE}/v1/audit?limit=${limit}`, { headers: _authHeaders() })
+  const resp = await _authedFetch(`${BASE}/v1/audit?limit=${limit}`, { headers: _authHeaders() })
   if (!resp.ok) throw new Error('Audit fetch failed')
   return resp.json()
 }

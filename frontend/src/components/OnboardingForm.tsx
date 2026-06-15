@@ -132,37 +132,41 @@ export default function OnboardingForm({ onResult, onProgress, onBack }: Props) 
   const labelCls = 'text-xs font-medium text-slate-400 mb-1 block'
 
   return (
-    <div className="min-h-screen bg-[#0f1117] flex items-start justify-center px-4 py-10">
+    <div className="min-h-screen bg-[#0f1117] flex items-start justify-center px-4 py-6 sm:py-10">
       <div className="w-full max-w-2xl">
-        <div className="flex items-center gap-3 mb-6">
-          <button onClick={onBack} className="text-slate-400 hover:text-white transition-colors">
+        <div className="flex items-center gap-3 mb-5 sm:mb-6">
+          <button onClick={onBack} className="text-slate-400 hover:text-white transition-colors flex-shrink-0">
             <ArrowLeft size={18} />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center flex-shrink-0">
               <Shield size={12} className="text-white" />
             </div>
-            <span className="text-sm font-semibold text-white">TrustLayer</span>
+            <span className="text-sm font-semibold text-white flex-shrink-0">TrustLayer</span>
             <span className="text-slate-600">/</span>
-            <span className="text-sm text-slate-400">New Assessment</span>
+            <span className="text-sm text-slate-400 truncate">New Assessment</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-0 mb-8">
+        {/* Step indicator — compact on mobile */}
+        <div className="flex items-center mb-6 sm:mb-8">
           {STEPS.map((s, i) => (
-            <div key={s} className="flex items-center">
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
+            <div key={s} className="flex items-center flex-1 last:flex-none">
+              <div className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg transition-all ${
                 i === step ? 'bg-blue-600/20 border border-blue-600/50' :
-                i < step ? 'text-green-400' : 'text-slate-600'
+                i < step ? '' : ''
               }`}>
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${
                   i < step ? 'bg-green-500 text-white' :
                   i === step ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-500'
                 }`}>{i < step ? '✓' : i + 1}</div>
-                <span className={`text-xs font-medium ${i === step ? 'text-blue-300' : i < step ? 'text-green-400' : 'text-slate-600'}`}>{s}</span>
+                <span className={`text-xs font-medium hidden sm:block ${i === step ? 'text-blue-300' : i < step ? 'text-green-400' : 'text-slate-600'}`}>{s}</span>
+                <span className={`text-[10px] font-medium sm:hidden ${i === step ? 'text-blue-300' : i < step ? 'text-green-400' : 'text-slate-600'}`}>
+                  {s.split(' ')[0]}
+                </span>
               </div>
               {i < STEPS.length - 1 && (
-                <div className={`w-8 h-px mx-1 ${i < step ? 'bg-green-700' : 'bg-slate-700'}`} />
+                <div className={`flex-1 h-px mx-1 ${i < step ? 'bg-green-700' : 'bg-slate-700'}`} />
               )}
             </div>
           ))}
@@ -179,8 +183,8 @@ export default function OnboardingForm({ onResult, onProgress, onBack }: Props) 
                     Biometric capture active
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="sm:col-span-2">
                     <label className={labelCls}>Full Name *</label>
                     <input className={inputCls} placeholder="As per identity document" {...field('full_name')} />
                   </div>
@@ -200,7 +204,7 @@ export default function OnboardingForm({ onResult, onProgress, onBack }: Props) 
                     <label className={labelCls}>PAN Number *</label>
                     <input className={inputCls} placeholder="ABCDE1234F" {...field('pan_number')} />
                   </div>
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <label className={labelCls}>Address</label>
                     <input className={inputCls} placeholder="Current residential address" {...field('address')} />
                   </div>

@@ -34,17 +34,17 @@ export default function MetricsDashboard({ onStart }: Props) {
   ] : []
 
   return (
-    <div className="min-h-screen bg-[#0f1117] px-6 py-8 max-w-6xl mx-auto">
+    <div className="min-h-screen bg-[#0f1117] px-4 sm:px-6 py-6 sm:py-8 max-w-6xl mx-auto">
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 sm:mb-8">
         <div className="flex items-center gap-3 mb-1">
           <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
             <Shield size={16} className="text-white" />
           </div>
           <span className="text-xs font-mono text-blue-400 tracking-widest uppercase">TrustLayer</span>
         </div>
-        <h1 className="text-2xl font-bold text-white">Identity Trust Framework</h1>
-        <p className="text-slate-400 text-sm mt-1">
+        <h1 className="text-xl sm:text-2xl font-bold text-white">Identity Trust Framework</h1>
+        <p className="text-slate-400 text-xs sm:text-sm mt-1">
           Privacy-first KYC risk-decisioning platform · Bank of Baroda Hackathon 2024
         </p>
       </motion.div>
@@ -52,27 +52,25 @@ export default function MetricsDashboard({ onStart }: Props) {
       {/* System status bar */}
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
-        className="flex items-center gap-2 mb-8 px-4 py-2.5 rounded-lg bg-surface-2 border border-slate-700/60 text-xs font-mono"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-6 sm:mb-8 px-3 sm:px-4 py-2.5 rounded-lg bg-surface-2 border border-slate-700/60 text-[11px] sm:text-xs font-mono"
       >
-        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-        <span className="text-green-400">ALL SYSTEMS OPERATIONAL</span>
-        <span className="text-slate-600 mx-2">|</span>
-        <span className="text-slate-400">Document Forensics Engine</span>
-        <span className="text-green-500 ml-1">✓</span>
-        <span className="text-slate-600 mx-2">|</span>
-        <span className="text-slate-400">Biometric Verification</span>
-        <span className="text-green-500 ml-1">✓</span>
-        <span className="text-slate-600 mx-2">|</span>
-        <span className="text-slate-400">Identity Graph</span>
-        <span className="text-green-500 ml-1">✓</span>
-        <span className="text-slate-600 mx-2">|</span>
-        <span className="text-slate-400">LLM Narration</span>
-        <span className="text-yellow-500 ml-1">◎</span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          <span className="text-green-400">ALL SYSTEMS OPERATIONAL</span>
+        </span>
+        <span className="text-slate-700 hidden sm:inline">|</span>
+        <span className="text-slate-400">Doc Forensics <span className="text-green-500">✓</span></span>
+        <span className="text-slate-700 hidden sm:inline">|</span>
+        <span className="text-slate-400">Biometrics <span className="text-green-500">✓</span></span>
+        <span className="text-slate-700 hidden sm:inline">|</span>
+        <span className="text-slate-400">Graph <span className="text-green-500">✓</span></span>
+        <span className="text-slate-700 hidden sm:inline">|</span>
+        <span className="text-slate-400">LLM <span className="text-yellow-500">◎</span></span>
       </motion.div>
 
       {/* Metric cards */}
       {loading ? (
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="h-24 rounded-xl bg-surface-2 animate-pulse" />
           ))}
@@ -80,7 +78,7 @@ export default function MetricsDashboard({ onStart }: Props) {
       ) : (
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
+          className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8"
         >
           {cards.map((c, i) => (
             <motion.div

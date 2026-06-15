@@ -4,9 +4,10 @@ import { login } from '../api/client'
 
 interface Props {
   onLogin: (role: string) => void
+  sessionExpired?: boolean
 }
 
-export default function LoginPage({ onLogin }: Props) {
+export default function LoginPage({ onLogin, sessionExpired }: Props) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
@@ -40,6 +41,12 @@ export default function LoginPage({ onLogin }: Props) {
           <h1 className="text-xl font-bold text-white">TrustLayer</h1>
           <p className="text-xs text-slate-500 mt-1">Identity Trust Framework</p>
         </div>
+
+        {sessionExpired && (
+          <div className="mb-4 px-4 py-3 rounded-xl bg-amber-950/40 border border-amber-700/60 text-xs text-amber-400 text-center">
+            Your session expired. Please sign in again.
+          </div>
+        )}
 
         {/* Card */}
         <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-700/60 bg-[#151821] p-6 space-y-4">
