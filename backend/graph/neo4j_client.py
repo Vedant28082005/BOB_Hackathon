@@ -193,56 +193,52 @@ async def detect_fraud_rings(applicant_id: str, min_size: int = 3) -> list[list[
         return rings
 
 
-async def get_ego_graph(applicant_id: str, hops: int = 2) -> dict:
-    """Return nodes + edges for the identity graph visualization."""
+async def get_ego_graph(
+    applicant_id: str,
+    hops: int = 2,
+    rings: Optional[list[list[str]]] = None,
+) -> dict:
+    """Return nodes + edges for the identity graph visualization.
+
+    `rings` may be passed in by a caller that already computed them (e.g.
+    analyse_graph) to skip a redundant fraud-ring traversal. Neighbour
+    ring-membership is then resolved by O(1) set lookup rather than a per-
+    neighbour graph query, turning an O(N) query fan-out into a single query.
+    """
     driver = await get_driver()
     async with driver.session() as s:
+        if rings is None:
+            rings = await detect_fraud_rings(applicant_id, min_size=settings.ring_min_size)
+        ring_member_ids: set[str] = set().union(*rings) if rings else set()
+
         result = await s.run("""
-            MATCH (center:Applicant {id: $id})
-            OPTIONAL MATCH path = (center)-[*1..4]-(neighbor)
-            WITH center, collect(DISTINCT neighbor) AS neighbors,
-                 collect(DISTINCT relationships(path)) AS all_rels
-            RETURN center, neighbors, all_rels
+            MATCH (a:Applicant {id: $id})-[r]->(shared)<-[r2]-(other:Applicant)
+            RETURN other, type(r) AS link_type
         """, id=applicant_id)
 
-        nodes = []
+        nodes = [{"id": applicant_id, "label": "You", "type": "Applicant", "is_current": True}]
         links = []
-        seen_nodes = set()
+        seen_nodes = {applicant_id}
         seen_edges = set()
 
-        # Simpler ego-graph query
-        result2 = await s.run("""
-            MATCH (a:Applicant {id: $id})-[r]->(shared)<-[r2]-(other:Applicant)
-            RETURN a, other, type(r) AS link_type, shared
-        """, id=applicant_id)
-
-        # Add center
-        nodes.append({"id": applicant_id, "label": "You", "type": "Applicant", "is_current": True})
-        seen_nodes.add(applicant_id)
-
-        async for rec in result2:
-            other_id = rec["other"]["id"]
-            other_name = rec["other"].get("name", other_id)
+        async for rec in result:
+            other = rec["other"]
+            other_id = other["id"]
             link_type = rec["link_type"]
 
             if other_id not in seen_nodes:
-                # Check if in a ring
-                rings = await detect_fraud_rings(other_id, min_size=2)
-                in_ring = len(rings) > 0
                 nodes.append({
-                    "id": other_id, "label": other_name,
-                    "type": "Applicant", "in_ring": in_ring,
-                    "risk_label": rec["other"].get("risk_label", "UNKNOWN"),
+                    "id": other_id,
+                    "label": other.get("name", other_id),
+                    "type": "Applicant",
+                    "in_ring": other_id in ring_member_ids,
+                    "risk_label": other.get("risk_label", "UNKNOWN"),
                 })
                 seen_nodes.add(other_id)
 
-            edge_key = tuple(sorted([applicant_id, other_id]) + [link_type])
+            edge_key = tuple(sorted((applicant_id, other_id)) + [link_type])
             if edge_key not in seen_edges:
                 links.append({"source": applicant_id, "target": other_id, "link_type": link_type})
                 seen_edges.add(edge_key)
 
-        # Detect rings
-        rings = await detect_fraud_rings(applicant_id, min_size=settings.ring_min_size)
-        ring_ids = [set(r) for r in rings]
-
-        return {"nodes": nodes, "links": links, "rings": [list(r) for r in ring_ids]}
+        return {"nodes": nodes, "links": links, "rings": [list(r) for r in rings]}

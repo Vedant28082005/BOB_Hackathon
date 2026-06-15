@@ -29,23 +29,45 @@ celery_app.conf.task_acks_late = True
 
 logger = get_task_logger(__name__)
 
+# ── Pooled clients (one per worker process, reused across tasks) ──────────────
+# Re-opening a Redis connection on every progress event or a fresh HTTP client
+# on every ML call wastes a TCP/TLS handshake each time. Lazily create one of
+# each per forked worker and keep its connection pool warm.
+_sync_redis = None
+_http_client: httpx.Client | None = None
+
+
+def _get_sync_redis():
+    global _sync_redis
+    if _sync_redis is None:
+        import redis
+        _sync_redis = redis.from_url(settings.redis_url)
+    return _sync_redis
+
+
+def _get_http_client() -> httpx.Client:
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.Client(timeout=settings.ml_timeout_seconds)
+    return _http_client
+
 
 def _pub(job_id: str, stage: str, pct: int, detail: str = "") -> None:
     """Publish progress update to Redis (sync version for Celery workers)."""
-    import redis
-    r = redis.from_url(settings.redis_url)
-    r.set(f"job:{job_id}", json.dumps({"stage": stage, "pct": pct, "detail": detail}), ex=3600)
-    r.publish(f"progress:{job_id}", json.dumps({"stage": stage, "pct": pct, "detail": detail}))
+    r = _get_sync_redis()
+    payload = json.dumps({"stage": stage, "pct": pct, "detail": detail})
+    r.set(f"job:{job_id}", payload, ex=3600)
+    r.publish(f"progress:{job_id}", payload)
 
 
 def _ml_post(endpoint: str, payload: dict) -> dict:
-    """Call the ML inference service."""
+    """Call the ML inference service over a reused, keep-alive connection."""
     url = f"{settings.ml_service_url}/v1/ml/{endpoint}"
-    with httpx.Client(timeout=settings.ml_timeout_seconds) as client:
-        resp = client.post(url, json=payload,
-                           headers={"X-API-Key": settings.ml_service_api_key})
-        resp.raise_for_status()
-        return resp.json()
+    resp = _get_http_client().post(
+        url, json=payload, headers={"X-API-Key": settings.ml_service_api_key}
+    )
+    resp.raise_for_status()
+    return resp.json()
 
 
 @celery_app.task(bind=True, name="assessment.run_pipeline", max_retries=1)

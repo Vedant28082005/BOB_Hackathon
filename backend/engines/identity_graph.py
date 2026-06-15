@@ -40,8 +40,8 @@ async def analyse_graph(
     # 4. Fraud ring detection
     rings = await detect_fraud_rings(applicant_id, settings.ring_min_size)
 
-    # 5. Ego graph for visualization
-    graph_data = await get_ego_graph(applicant_id)
+    # 5. Ego graph for visualization (reuse rings — avoids a redundant traversal)
+    graph_data = await get_ego_graph(applicant_id, rings=rings)
 
     # 6. Score
     flags: list[str] = []

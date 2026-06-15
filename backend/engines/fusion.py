@@ -12,6 +12,44 @@ from typing import Any
 _HARD_REJECT = {"GRAPH_DUPLICATE", "BIO_DEEPFAKE", "LIVENESS_FAIL"}
 _HARD_MANUAL = {"DOC_TAMPERED", "GRAPH_RING_MEMBER"}
 
+# Severity ordering for sorting reason codes (built once at import).
+_SEVERITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
+
+# Static flag → reason-code metadata catalog (built once at import, not per call).
+_FLAG_CATALOG: dict[str, dict] = {
+    # Document
+    "ELA_ANOMALY":            {"title": "Image Manipulation Detected (ELA)", "severity": "HIGH",     "impact": -18, "code": "DOC_ELA_001"},
+    "COPY_MOVE_DETECTED":     {"title": "Clone / Copy-Move Artifacts",       "severity": "HIGH",     "impact": -15, "code": "DOC_CM_001"},
+    "EDITING_SOFTWARE_DETECTED": {"title": "Photo Editing Software in EXIF", "severity": "MEDIUM",  "impact": -10, "code": "DOC_EXIF_001"},
+    "EXIF_DATETIME_MISMATCH": {"title": "EXIF DateTime Inconsistency",       "severity": "MEDIUM",  "impact": -8,  "code": "DOC_EXIF_002"},
+    "NOISE_INCONSISTENCY":    {"title": "Sensor Noise Inconsistency",         "severity": "MEDIUM",  "impact": -8,  "code": "DOC_NOISE_001"},
+    "ID_CHECKSUM_FAIL":       {"title": "ID Number Checksum Invalid",         "severity": "CRITICAL","impact": -30, "code": "DOC_CHK_001"},
+    "FIELD_MISMATCH:name":    {"title": "Name Mismatch (OCR vs Form)",        "severity": "HIGH",    "impact": -20, "code": "DOC_FIELD_001"},
+    "FIELD_MISMATCH:dob":     {"title": "DOB Mismatch (OCR vs Form)",         "severity": "HIGH",    "impact": -15, "code": "DOC_FIELD_002"},
+    "DOC_TAMPERED":           {"title": "Document Tampering Confirmed",        "severity": "CRITICAL","impact": -40, "code": "DOC_TAMP_001"},
+    "DOC_ML_UNAVAILABLE":     {"title": "Document ML Service Unavailable",     "severity": "INFO",    "impact": 0,   "code": "DOC_SYS_001"},
+    # Biometric
+    "FACE_MISMATCH":          {"title": "Face Does Not Match Document",        "severity": "CRITICAL","impact": -35, "code": "BIO_FACE_001"},
+    "LIVENESS_FAIL":          {"title": "Liveness Check Failed",               "severity": "CRITICAL","impact": -40, "code": "BIO_LIVE_001"},
+    "BIO_DEEPFAKE":           {"title": "Deepfake / Synthetic Face Detected",  "severity": "CRITICAL","impact": -50, "code": "BIO_DF_001"},
+    "BIO_ML_UNAVAILABLE":     {"title": "Biometric ML Service Unavailable",    "severity": "INFO",    "impact": 0,   "code": "BIO_SYS_001"},
+    # Device
+    "EMULATOR_DETECTED":      {"title": "Emulator / Virtual Device",           "severity": "HIGH",    "impact": -20, "code": "DEV_EMU_001"},
+    "FRAUD_IP":               {"title": "IP Associated with Prior Fraud",      "severity": "HIGH",    "impact": -18, "code": "DEV_IP_001"},
+    "TZ_IP_MISMATCH":         {"title": "Timezone / IP Geolocation Mismatch",  "severity": "LOW",     "impact": -5,  "code": "DEV_TZ_001"},
+    "VPN_DATACENTER_IP":      {"title": "VPN / Datacenter IP Detected",        "severity": "MEDIUM",  "impact": -10, "code": "DEV_VPN_001"},
+    "SHARED_DEVICE_RISKY":    {"title": "Device Fingerprint Shared with Fraudsters","severity":"MEDIUM","impact":-12, "code":"DEV_FP_001"},
+    # Behavioural
+    "BOT_PATTERN":            {"title": "Bot / Automation Pattern",            "severity": "HIGH",    "impact": -25, "code": "BEH_BOT_001"},
+    "PASTE_HEAVY":            {"title": "Excessive Copy-Paste (Prefill Bot)",  "severity": "MEDIUM",  "impact": -10, "code": "BEH_PASTE_001"},
+    "INSTANT_FILL":           {"title": "Instant Form Fill (Suspicious Speed)","severity": "MEDIUM",  "impact": -8,  "code": "BEH_SPD_001"},
+    # Graph
+    "GRAPH_DUPLICATE":        {"title": "Duplicate Identity Detected",         "severity": "CRITICAL","impact": -50, "code": "GR_DUP_001"},
+    "GRAPH_RING_MEMBER":      {"title": "Fraud Ring Membership Detected",      "severity": "CRITICAL","impact": -40, "code": "GR_RING_001"},
+    "SHARED_DEVICE":          {"title": "Device Shared with Prior Applicants", "severity": "MEDIUM",  "impact": -12, "code": "GR_DEV_001"},
+    "SHARED_IP":              {"title": "IP Shared with Prior Applicants",     "severity": "MEDIUM",  "impact": -8,  "code": "GR_IP_001"},
+}
+
 
 def _score_to_decision(score: float, thresholds: dict) -> str:
     if score >= thresholds["approve"]:
@@ -35,53 +73,13 @@ def _risk_band(decision: str, score: float) -> str:
 
 def _build_reason_codes(pipeline: dict) -> list[dict]:
     codes = []
-
-    stage_flags = {
-        stage: data.get("flags", [])
-        for stage, data in pipeline.items()
-    }
-
-    flag_catalog: dict[str, dict] = {
-        # Document
-        "ELA_ANOMALY":            {"title": "Image Manipulation Detected (ELA)", "severity": "HIGH",     "impact": -18, "code": "DOC_ELA_001"},
-        "COPY_MOVE_DETECTED":     {"title": "Clone / Copy-Move Artifacts",       "severity": "HIGH",     "impact": -15, "code": "DOC_CM_001"},
-        "EDITING_SOFTWARE_DETECTED": {"title": "Photo Editing Software in EXIF", "severity": "MEDIUM",  "impact": -10, "code": "DOC_EXIF_001"},
-        "EXIF_DATETIME_MISMATCH": {"title": "EXIF DateTime Inconsistency",       "severity": "MEDIUM",  "impact": -8,  "code": "DOC_EXIF_002"},
-        "NOISE_INCONSISTENCY":    {"title": "Sensor Noise Inconsistency",         "severity": "MEDIUM",  "impact": -8,  "code": "DOC_NOISE_001"},
-        "ID_CHECKSUM_FAIL":       {"title": "ID Number Checksum Invalid",         "severity": "CRITICAL","impact": -30, "code": "DOC_CHK_001"},
-        "FIELD_MISMATCH:name":    {"title": "Name Mismatch (OCR vs Form)",        "severity": "HIGH",    "impact": -20, "code": "DOC_FIELD_001"},
-        "FIELD_MISMATCH:dob":     {"title": "DOB Mismatch (OCR vs Form)",         "severity": "HIGH",    "impact": -15, "code": "DOC_FIELD_002"},
-        "DOC_TAMPERED":           {"title": "Document Tampering Confirmed",        "severity": "CRITICAL","impact": -40, "code": "DOC_TAMP_001"},
-        "DOC_ML_UNAVAILABLE":     {"title": "Document ML Service Unavailable",     "severity": "INFO",    "impact": 0,   "code": "DOC_SYS_001"},
-        # Biometric
-        "FACE_MISMATCH":          {"title": "Face Does Not Match Document",        "severity": "CRITICAL","impact": -35, "code": "BIO_FACE_001"},
-        "LIVENESS_FAIL":          {"title": "Liveness Check Failed",               "severity": "CRITICAL","impact": -40, "code": "BIO_LIVE_001"},
-        "BIO_DEEPFAKE":           {"title": "Deepfake / Synthetic Face Detected",  "severity": "CRITICAL","impact": -50, "code": "BIO_DF_001"},
-        "BIO_ML_UNAVAILABLE":     {"title": "Biometric ML Service Unavailable",    "severity": "INFO",    "impact": 0,   "code": "BIO_SYS_001"},
-        # Device
-        "EMULATOR_DETECTED":      {"title": "Emulator / Virtual Device",           "severity": "HIGH",    "impact": -20, "code": "DEV_EMU_001"},
-        "FRAUD_IP":               {"title": "IP Associated with Prior Fraud",      "severity": "HIGH",    "impact": -18, "code": "DEV_IP_001"},
-        "TZ_IP_MISMATCH":         {"title": "Timezone / IP Geolocation Mismatch",  "severity": "LOW",     "impact": -5,  "code": "DEV_TZ_001"},
-        "VPN_DATACENTER_IP":      {"title": "VPN / Datacenter IP Detected",        "severity": "MEDIUM",  "impact": -10, "code": "DEV_VPN_001"},
-        "SHARED_DEVICE_RISKY":    {"title": "Device Fingerprint Shared with Fraudsters","severity":"MEDIUM","impact":-12, "code":"DEV_FP_001"},
-        # Behavioural
-        "BOT_PATTERN":            {"title": "Bot / Automation Pattern",            "severity": "HIGH",    "impact": -25, "code": "BEH_BOT_001"},
-        "PASTE_HEAVY":            {"title": "Excessive Copy-Paste (Prefill Bot)",  "severity": "MEDIUM",  "impact": -10, "code": "BEH_PASTE_001"},
-        "INSTANT_FILL":           {"title": "Instant Form Fill (Suspicious Speed)","severity": "MEDIUM",  "impact": -8,  "code": "BEH_SPD_001"},
-        # Graph
-        "GRAPH_DUPLICATE":        {"title": "Duplicate Identity Detected",         "severity": "CRITICAL","impact": -50, "code": "GR_DUP_001"},
-        "GRAPH_RING_MEMBER":      {"title": "Fraud Ring Membership Detected",      "severity": "CRITICAL","impact": -40, "code": "GR_RING_001"},
-        "SHARED_DEVICE":          {"title": "Device Shared with Prior Applicants", "severity": "MEDIUM",  "impact": -12, "code": "GR_DEV_001"},
-        "SHARED_IP":              {"title": "IP Shared with Prior Applicants",     "severity": "MEDIUM",  "impact": -8,  "code": "GR_IP_001"},
-    }
-
     seen = set()
-    for stage, flags in stage_flags.items():
-        for flag in flags:
+    for stage, data in pipeline.items():
+        for flag in data.get("flags", []):
             if flag in seen:
                 continue
             seen.add(flag)
-            meta = flag_catalog.get(flag)
+            meta = _FLAG_CATALOG.get(flag)
             if meta:
                 codes.append({
                     "code": meta["code"],
@@ -92,7 +90,7 @@ def _build_reason_codes(pipeline: dict) -> list[dict]:
                     "stage": stage,
                 })
 
-    return sorted(codes, key=lambda x: {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}[x["severity"]])
+    return sorted(codes, key=lambda x: _SEVERITY_ORDER[x["severity"]])
 
 
 def _cross_signal_penalty(pipeline: dict) -> float:
