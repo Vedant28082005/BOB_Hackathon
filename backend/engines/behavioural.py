@@ -31,6 +31,10 @@ class BehaviouralResult:
     signals: dict = field(default_factory=dict)
 
 
+def analyse_behavioural(signals: BehaviouralSignals) -> BehaviouralResult:
+    return analyse_behaviour(signals)
+
+
 def analyse_behaviour(signals: BehaviouralSignals) -> BehaviouralResult:
     intervals = signals.keystroke_intervals_ms
     flags: list[str] = []
