@@ -16,6 +16,7 @@ from security.rbac import Role
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/v1/auth/token")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/v1/auth/token", auto_error=False)
 
 
 # ── Password helpers ──────────────────────────────────────────────────────────
@@ -71,10 +72,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> CurrentUser:
 
 async def get_current_user_sse(
     token: Optional[str] = None,
-    bearer: str = Depends(oauth2_scheme),
+    bearer: Optional[str] = Depends(oauth2_scheme_optional),
 ) -> CurrentUser:
     """Accepts JWT from Authorization header OR ?token= query param (EventSource can't set headers)."""
     raw = token or bearer
+    if not raw:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "No token provided")
     payload = decode_token(raw)
     sub = payload.get("sub")
     role = payload.get("role", "analyst")
