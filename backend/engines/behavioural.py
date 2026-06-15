@@ -31,7 +31,8 @@ class BehaviouralResult:
     signals: dict = field(default_factory=dict)
 
 
-def analyse_behavioural(signals) -> BehaviouralResult:
+def analyse_behavioural(signals) -> dict:
+    """Pipeline-compatible wrapper: accepts dict or BehaviouralSignals, returns dict."""
     if isinstance(signals, dict):
         signals = BehaviouralSignals(
             keystroke_intervals_ms=signals.get("keystroke_intervals_ms", []),
@@ -39,7 +40,12 @@ def analyse_behavioural(signals) -> BehaviouralResult:
             paste_events=int(signals.get("paste_events", 0)),
             focus_losses=int(signals.get("focus_losses", 0)),
         )
-    return analyse_behaviour(signals)
+    r = analyse_behaviour(signals)
+    return {
+        "score": r.score,
+        "flags": r.flags,
+        "signals": r.signals,
+    }
 
 
 def analyse_behaviour(signals: BehaviouralSignals) -> BehaviouralResult:
