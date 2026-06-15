@@ -1,0 +1,56 @@
+# Claude / graphify internal files
+.claude/
+graphify-out/
+
+# SQLite dev DB
+*.db
+trustlayer.db
+
+# Stray model files at root
+*.onnx
+*.pth
+*.pt
+*.bin
+
+# Environment secrets
+infra/.env
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ML model weights (large binaries — download separately)
+ml-service/model_weights/*.onnx
+ml-service/model_weights/*.pth
+ml-service/model_weights/*.pt
+ml-service/model_weights/*.bin
+!ml-service/model_weights/.gitkeep
+
+# GeoIP DB
+infra/geoip/*.mmdb
+!infra/geoip/.gitkeep
+
+# Docker volumes / data
+data/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store

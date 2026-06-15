@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trustlayer-ml-service
+  namespace: trustlayer
+spec:
+  replicas: 1   # single replica to share GPU model state
+  selector:
+    matchLabels:
+      app: trustlayer-ml-service
+  template:
+    metadata:
+      labels:
+        app: trustlayer-ml-service
+    spec:
+      containers:
+        - name: ml-service
+          image: trustlayer/ml-service:2.0.0
+          ports:
+            - containerPort: 8001
+          env:
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: trustlayer-secrets
+                  key: ML_SERVICE_API_KEY
+            - name: USE_GPU
+              value: "true"
+          volumeMounts:
+            - name: model-weights
+              mountPath: /app/model_weights
+              readOnly: true
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "8"
+              memory: "12Gi"
+              nvidia.com/gpu: "1"    # RTX 3060
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 60   # models take time to load
+            periodSeconds: 10
+      volumes:
+        - name: model-weights
+          persistentVolumeClaim:
+            claimName: model-weights-pvc
+      # Node affinity: schedule only on GPU nodes
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: accelerator
+                    operator: In
+                    values:
+                      - nvidia-rtx-3060
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trustlayer-ml-service
+  namespace: trustlayer
+spec:
+  selector:
+    app: trustlayer-ml-service
+  ports:
+    - port: 8001
+      targetPort: 8001
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-weights-pvc
+  namespace: trustlayer
+spec:
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 10Gi

@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trustlayer-backend
+  namespace: trustlayer
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: trustlayer-backend
+  template:
+    metadata:
+      labels:
+        app: trustlayer-backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: backend
+          image: trustlayer/backend:2.0.0
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: trustlayer-secrets
+            - configMapRef:
+                name: trustlayer-config
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trustlayer-backend
+  namespace: trustlayer
+spec:
+  selector:
+    app: trustlayer-backend
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trustlayer-worker
+  namespace: trustlayer
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: trustlayer-worker
+  template:
+    metadata:
+      labels:
+        app: trustlayer-worker
+    spec:
+      containers:
+        - name: worker
+          image: trustlayer/backend:2.0.0
+          command:
+            - celery
+            - -A
+            - tasks.assessment_pipeline.celery_app
+            - worker
+            - --loglevel=info
+            - --concurrency=4
+          envFrom:
+            - secretRef:
+                name: trustlayer-secrets
+            - configMapRef:
+                name: trustlayer-config
+          resources:
+            requests:
+              cpu: "1"
+              memory: "1Gi"
+            limits:
+              cpu: "4"
+              memory: "4Gi"

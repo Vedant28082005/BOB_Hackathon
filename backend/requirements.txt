@@ -1,0 +1,44 @@
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+pydantic==2.7.1
+pydantic-settings==2.2.1
+
+# Database
+sqlmodel==0.0.18
+sqlalchemy[asyncio]==2.0.30
+asyncpg==0.29.0
+alembic==1.13.1
+
+# Graph
+neo4j==5.20.0
+
+# Cache / queue
+redis[hiredis]==5.0.4
+celery[redis]==5.4.0
+
+# Object storage
+minio==7.2.7
+
+# Auth / security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+cryptography==42.0.7
+
+# LLM
+google-generativeai==0.5.4
+
+# GeoIP
+geoip2==4.8.0
+
+# HTTP client (for ML service calls)
+httpx==0.27.0
+
+# Observability
+prometheus-fastapi-instrumentator==6.1.0
+structlog==24.1.0
+
+# Utils
+numpy==1.26.4
