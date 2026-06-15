@@ -42,15 +42,19 @@ export default function OnboardingForm({ onResult, onProgress, onBack }: Props) 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.play()
-      }
-      setCamActive(true)
+      setCamActive(true) // render <video> first, then useEffect attaches the stream
     } catch {
       setCamError('Camera access denied. Please allow camera permission and try again.')
     }
   }, [])
+
+  // Attach stream after <video> mounts (camActive=true triggers the render)
+  useEffect(() => {
+    if (camActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current
+      videoRef.current.play().catch(() => {})
+    }
+  }, [camActive])
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach(t => t.stop())
@@ -293,9 +297,9 @@ export default function OnboardingForm({ onResult, onProgress, onBack }: Props) 
                         <div className="w-44 h-56 rounded-full border-2 border-blue-400/60 border-dashed" />
                       </div>
                     </div>
-                    <div className="absolute bottom-3 inset-x-0 flex justify-center">
+                    <div className="absolute bottom-3 inset-x-0 flex justify-center z-10">
                       <button onClick={capturePhoto}
-                        className="w-14 h-14 rounded-full bg-white border-4 border-blue-500 hover:scale-105 transition-transform shadow-xl flex items-center justify-center">
+                        className="w-14 h-14 rounded-full bg-white border-4 border-blue-500 hover:scale-105 transition-transform shadow-xl flex items-center justify-center cursor-pointer">
                         <Camera size={22} className="text-blue-600" />
                       </button>
                     </div>
