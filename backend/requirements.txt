@@ -27,8 +27,8 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 cryptography==42.0.7
 
-# LLM
-google-generativeai==0.5.4
+# LLM (NVIDIA NIM via OpenAI-compatible client)
+openai==1.51.2
 
 # GeoIP
 geoip2==4.8.0

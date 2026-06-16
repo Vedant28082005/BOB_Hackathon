@@ -25,6 +25,8 @@ x-backend-env: &backend-env
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
   AES_KEY_HEX: "${AES_KEY_HEX}"
   GEMINI_API_KEY: "${GEMINI_API_KEY}"
+  NVIDIA_API_KEY: "${NVIDIA_API_KEY}"
+  NVIDIA_MODEL: "${NVIDIA_MODEL:-deepseek-ai/deepseek-v4-flash}"
   ENVIRONMENT: "production"
   DEBUG: "false"
   PYTHONPATH: "/app"

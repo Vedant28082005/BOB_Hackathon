@@ -60,7 +60,11 @@ class Settings(BaseSettings):
 
     # ── LLM ──────────────────────────────────────────────────────────────────
     gemini_api_key: str = ""
-    llm_provider: str = "gemini"
+    llm_provider: str = "nvidia"
+    # NVIDIA NIM (OpenAI-compatible) — used for assessment narration
+    nvidia_api_key: str = ""
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nvidia_model: str = "deepseek-ai/deepseek-v4-flash"
 
     # ── GeoIP (MaxMind GeoLite2) ──────────────────────────────────────────────
     geoip_db_path: str = "data/GeoLite2-City.mmdb"

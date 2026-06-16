@@ -1,16 +1,29 @@
 """
-TrustLayer – Gemini LLM Integration
-=====================================
-Sends structured assessment signals to Gemini 1.5 Flash and returns
-a concise, professional risk-analyst-style narrative.
+TrustLayer – LLM Narration Integration
+=======================================
+Sends structured assessment signals to an NVIDIA NIM (OpenAI-compatible)
+DeepSeek model and returns a concise, professional risk-analyst narrative.
 
 Gracefully falls back to a high-quality templated explanation if the API
 key is missing or the API call fails.
 """
 from __future__ import annotations
 import json
-from config import GEMINI_API_KEY
-GEMINI_MODEL = "gemini-2.0-flash"
+from config import settings
+
+# Reused OpenAI client (points at NVIDIA's OpenAI-compatible endpoint).
+_client = None
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        from openai import OpenAI
+        _client = OpenAI(
+            base_url=settings.nvidia_base_url,
+            api_key=settings.nvidia_api_key,
+        )
+    return _client
 
 
 def _template_explanation(
@@ -67,15 +80,11 @@ def generate_explanation(
     pipeline_scores: dict[str, float],
     applicant_name: str,
 ) -> str:
-    if GEMINI_API_KEY == "PASTE_KEY_HERE" or not GEMINI_API_KEY:
+    key = settings.nvidia_api_key
+    if not key or key == "PASTE_KEY_HERE":
         return _template_explanation(trust_score, decision, risk_band, reason_codes, pipeline_scores)
 
-    try:
-        import google.generativeai as genai  # type: ignore
-        genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel(GEMINI_MODEL)
-
-        prompt = f"""You are a senior fraud analyst at a digital bank writing an internal risk-decisioning report.
+    prompt = f"""You are a senior fraud analyst at a digital bank writing an internal risk-decisioning report.
 Write a concise (3-5 sentences), professional explanation of the following KYC assessment outcome.
 Be specific about the signals that drove the decision. Use precise, analyst-grade language.
 Do NOT mention that you are an AI. Do NOT use bullet points – write in flowing prose.
@@ -90,10 +99,20 @@ Assessment summary:
 
 Write the explanation now:"""
 
-        response = model.generate_content(prompt)
-        return response.text.strip()
+    try:
+        completion = _get_client().chat.completions.create(
+            model=settings.nvidia_model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=1,
+            top_p=0.95,
+            max_tokens=16384,
+            extra_body={"chat_template_kwargs": {"thinking": True, "reasoning_effort": "high"}},
+            stream=False,
+        )
+        text = (completion.choices[0].message.content or "").strip()
+        return text or _template_explanation(trust_score, decision, risk_band, reason_codes, pipeline_scores)
 
     except Exception as exc:
         # Log but don't crash – return templated explanation
-        print(f"[LLM] Gemini call failed ({exc}), using template fallback")
+        print(f"[LLM] NVIDIA call failed ({exc}), using template fallback")
         return _template_explanation(trust_score, decision, risk_band, reason_codes, pipeline_scores)
