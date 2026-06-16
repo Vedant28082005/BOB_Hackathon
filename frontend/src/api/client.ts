@@ -313,3 +313,42 @@ export async function resetIdentityGraph(): Promise<{ nodes_removed: number }> {
   }
   return resp.json()
 }
+
+// ── Admin: fusion weights + decision thresholds (admin only) ───────────────────
+export interface RuntimeConfig {
+  weights: Record<string, number>
+  thresholds: Record<string, number>
+}
+
+export async function getAdminConfig(): Promise<RuntimeConfig> {
+  const resp = await _authedFetch(`${BASE}/v1/admin/config`, { headers: _authHeaders() })
+  if (!resp.ok) throw new Error('Failed to load config')
+  return resp.json()
+}
+
+export async function updateAdminConfig(update: Partial<RuntimeConfig>): Promise<{ config: RuntimeConfig }> {
+  const resp = await _authedFetch(`${BASE}/v1/admin/config`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ..._authHeaders() },
+    body: JSON.stringify(update),
+  })
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: resp.statusText }))
+    throw new Error(err.detail ?? 'Update failed')
+  }
+  return resp.json()
+}
+
+// ── Auditor: verify the tamper-evident audit hash chain ────────────────────────
+export interface ChainVerifyResult {
+  valid: boolean
+  total_records: number
+  first_broken_index: number | null
+  message: string
+}
+
+export async function verifyAuditChain(): Promise<ChainVerifyResult> {
+  const resp = await _authedFetch(`${BASE}/v1/audit/verify`, { headers: _authHeaders() })
+  if (!resp.ok) throw new Error('Chain verification failed')
+  return resp.json()
+}

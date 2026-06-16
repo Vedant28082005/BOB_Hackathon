@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Shield, Activity, FileText, LogOut, Menu, X } from 'lucide-react'
+import { Shield, Activity, FileText, LogOut, Menu, X, SlidersHorizontal } from 'lucide-react'
 import MetricsDashboard from './components/MetricsDashboard'
 import OnboardingForm from './components/OnboardingForm'
 import AssessmentPipeline from './components/AssessmentPipeline'
 import ResultView from './components/ResultView'
 import AuditLog from './components/AuditLog'
+import AdminPanel from './components/AdminPanel'
 import LoginPage from './components/LoginPage'
 import { clearAuthToken, onUnauthorized, isTokenExpired } from './api/client'
 import type { AssessmentResult } from './types'
 
-type Page = 'dashboard' | 'form' | 'pipeline' | 'result' | 'audit'
+type Page = 'dashboard' | 'form' | 'pipeline' | 'result' | 'audit' | 'admin'
 
 interface PipelineProgress {
   stage: string
@@ -43,11 +44,20 @@ export default function App() {
   if (!authed) {
     return (
       <LoginPage
-        onLogin={(r) => { setRole(r); setAuthed(true); setSessionExpiredMsg(false) }}
+        onLogin={(r) => {
+          setRole(r)
+          setAuthed(true)
+          setSessionExpiredMsg(false)
+          // Auditors are read-only — land them directly on the audit log.
+          setPage(r === 'auditor' ? 'audit' : 'dashboard')
+        }}
         sessionExpired={sessionExpiredMsg}
       />
     )
   }
+
+  const isAuditor = role === 'auditor'
+  const isAdmin = role === 'admin'
 
   const handleLogout = () => { clearAuthToken(); setAuthed(false); setRole(''); setMobileMenuOpen(false) }
 
@@ -79,6 +89,16 @@ export default function App() {
         {/* Desktop nav */}
         <div className="ml-auto hidden sm:flex items-center gap-2">
           {role && <span className="text-[10px] font-mono text-slate-600 bg-slate-800 px-2 py-1 rounded">{role}</span>}
+          {isAdmin && (
+            <button
+              onClick={() => navTo('admin')}
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors ${
+                page === 'admin' ? 'text-purple-400 bg-purple-950/40' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <SlidersHorizontal size={12} />Admin
+            </button>
+          )}
           <button
             onClick={() => navTo('audit')}
             className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors ${
@@ -129,6 +149,12 @@ export default function App() {
                 Signed in as <span className="text-slate-300">{role}</span>
               </div>
             )}
+            {isAdmin && (
+              <button onClick={() => navTo('admin')}
+                className="w-full flex items-center gap-2 text-sm px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-left">
+                <SlidersHorizontal size={14} />Admin Console
+              </button>
+            )}
             <button onClick={() => navTo('audit')}
               className="w-full flex items-center gap-2 text-sm px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-left">
               <FileText size={14} />Audit Log
@@ -158,14 +184,21 @@ export default function App() {
           style={{ minHeight: '100vh' }}
         >
           {page === 'dashboard' && (
-            <MetricsDashboard onStart={() => setPage('form')} />
+            <MetricsDashboard
+              role={role}
+              onStart={() => setPage('form')}
+              onViewAudit={() => setPage('audit')}
+            />
           )}
-          {page === 'form' && (
+          {page === 'form' && !isAuditor && (
             <OnboardingForm
               onResult={handleResult}
               onProgress={handleProgress}
               onBack={() => setPage('dashboard')}
             />
+          )}
+          {page === 'admin' && isAdmin && (
+            <AdminPanel onBack={() => setPage('dashboard')} />
           )}
           {page === 'pipeline' && (
             <AssessmentPipeline

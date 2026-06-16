@@ -1,33 +1,52 @@
 """Admin router — threshold/weight config, user management (admin role only)."""
-from fastapi import APIRouter, Depends
+import json
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from security.auth import require_role, CurrentUser
 from config import settings
 from graph.neo4j_client import clear_graph
+from storage.redis_client import get_redis
 
 router = APIRouter()
 
-# In-memory config cache (production: load from DB, invalidate on change)
-_runtime_config = {
-    "weights": {
-        "document":       settings.weight_document,
-        "biometric":      settings.weight_biometric,
-        "device":         settings.weight_device,
-        "behavioural":    settings.weight_behavioural,
-        "identity_graph": settings.weight_identity_graph,
-    },
-    "thresholds": {
-        "approve":       settings.threshold_approve,
-        "step_up":       settings.threshold_step_up,
-        "manual_review": settings.threshold_manual_review,
-    },
-}
+# Config is persisted in Redis so it is shared across the API and the Celery
+# worker processes (separate memory spaces) and survives restarts.
+RUNTIME_CONFIG_KEY = "runtime_config"
+
+
+def _default_config() -> dict:
+    return {
+        "weights": {
+            "document":       settings.weight_document,
+            "biometric":      settings.weight_biometric,
+            "device":         settings.weight_device,
+            "behavioural":    settings.weight_behavioural,
+            "identity_graph": settings.weight_identity_graph,
+        },
+        "thresholds": {
+            "approve":       settings.threshold_approve,
+            "step_up":       settings.threshold_step_up,
+            "manual_review": settings.threshold_manual_review,
+        },
+    }
+
+
+async def _load_config() -> dict:
+    r = await get_redis()
+    raw = await r.get(RUNTIME_CONFIG_KEY)
+    if raw:
+        try:
+            return json.loads(raw)
+        except (ValueError, TypeError):
+            pass
+    return _default_config()
 
 
 @router.get("/config")
 async def get_config(user: CurrentUser = Depends(require_role("admin"))):
-    return _runtime_config
+    return await _load_config()
 
 
 class ConfigUpdate(BaseModel):
@@ -38,15 +57,17 @@ class ConfigUpdate(BaseModel):
 @router.put("/config")
 async def update_config(update: ConfigUpdate,
                         user: CurrentUser = Depends(require_role("admin"))):
+    cfg = await _load_config()
     if update.weights:
         total = sum(update.weights.values())
         if abs(total - 1.0) > 0.01:
-            from fastapi import HTTPException
             raise HTTPException(400, f"Weights must sum to 1.0 (got {total:.3f})")
-        _runtime_config["weights"].update(update.weights)
+        cfg["weights"].update(update.weights)
     if update.thresholds:
-        _runtime_config["thresholds"].update(update.thresholds)
-    return {"status": "updated", "config": _runtime_config}
+        cfg["thresholds"].update(update.thresholds)
+    r = await get_redis()
+    await r.set(RUNTIME_CONFIG_KEY, json.dumps(cfg))
+    return {"status": "updated", "config": cfg}
 
 
 @router.post("/graph/reset")

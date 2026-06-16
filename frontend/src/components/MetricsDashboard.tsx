@@ -5,9 +5,14 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { fetchMetrics, resetIdentityGraph } from '../api/client'
 import type { MetricsData } from '../types'
 
-interface Props { onStart: () => void }
+interface Props {
+  onStart: () => void
+  role?: string
+  onViewAudit?: () => void
+}
 
-export default function MetricsDashboard({ onStart }: Props) {
+export default function MetricsDashboard({ onStart, role = '', onViewAudit }: Props) {
+  const isAuditor = role === 'auditor'
   const [metrics, setMetrics] = useState<MetricsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(false)
@@ -143,7 +148,7 @@ export default function MetricsDashboard({ onStart }: Props) {
           )}
         </motion.div>
 
-        {/* Start assessment CTA */}
+        {/* Start assessment CTA (auditors get a read-only audit shortcut) */}
         <motion.div
           initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.35 }}
           className="rounded-xl border border-blue-800/60 bg-blue-950/20 p-5 flex flex-col justify-between"
@@ -152,30 +157,52 @@ export default function MetricsDashboard({ onStart }: Props) {
             <div className="w-10 h-10 rounded-lg bg-blue-600/30 border border-blue-500/40 flex items-center justify-center mb-3">
               <Shield size={20} className="text-blue-400" />
             </div>
-            <h3 className="font-semibold text-white mb-1">New KYC Assessment</h3>
-            <p className="text-slate-400 text-sm leading-relaxed">
-              Run a full identity verification with live document forensics, biometric analysis, and graph-based fraud detection.
-            </p>
+            {isAuditor ? (
+              <>
+                <h3 className="font-semibold text-white mb-1">Auditor Access</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  You have read-only oversight. Review the tamper-evident audit log and verify the hash chain integrity.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="font-semibold text-white mb-1">New KYC Assessment</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  Run a full identity verification with live document forensics, biometric analysis, and graph-based fraud detection.
+                </p>
+              </>
+            )}
           </div>
-          <button
-            onClick={onStart}
-            className="mt-6 w-full py-3 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors text-white font-semibold text-sm"
-          >
-            Start Assessment →
-          </button>
 
-          {/* Demo control: reset the identity graph so re-submissions aren't
-              flagged as duplicates of earlier test runs */}
-          <button
-            onClick={handleResetGraph}
-            disabled={resetting}
-            className="mt-2 w-full py-2 rounded-lg border border-slate-700 hover:border-slate-500 disabled:opacity-50 transition-colors text-slate-400 hover:text-slate-200 text-xs font-medium flex items-center justify-center gap-1.5"
-          >
-            <RotateCcw size={12} className={resetting ? 'animate-spin' : ''} />
-            {resetting ? 'Resetting…' : 'Reset Identity Graph (demo)'}
-          </button>
-          {resetMsg && (
-            <p className="mt-2 text-[11px] text-center text-slate-400">{resetMsg}</p>
+          {isAuditor ? (
+            <button
+              onClick={onViewAudit}
+              className="mt-6 w-full py-3 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors text-white font-semibold text-sm"
+            >
+              View Audit Log →
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={onStart}
+                className="mt-6 w-full py-3 rounded-lg bg-blue-600 hover:bg-blue-500 transition-colors text-white font-semibold text-sm"
+              >
+                Start Assessment →
+              </button>
+              {/* Demo control: reset the identity graph so re-submissions aren't
+                  flagged as duplicates of earlier test runs */}
+              <button
+                onClick={handleResetGraph}
+                disabled={resetting}
+                className="mt-2 w-full py-2 rounded-lg border border-slate-700 hover:border-slate-500 disabled:opacity-50 transition-colors text-slate-400 hover:text-slate-200 text-xs font-medium flex items-center justify-center gap-1.5"
+              >
+                <RotateCcw size={12} className={resetting ? 'animate-spin' : ''} />
+                {resetting ? 'Resetting…' : 'Reset Identity Graph (demo)'}
+              </button>
+              {resetMsg && (
+                <p className="mt-2 text-[11px] text-center text-slate-400">{resetMsg}</p>
+              )}
+            </>
           )}
         </motion.div>
       </div>

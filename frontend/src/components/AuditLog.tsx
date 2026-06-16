@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, CheckCircle, XCircle, ArrowLeft } from 'lucide-react'
-import { fetchAuditLog } from '../api/client'
+import { Lock, CheckCircle, XCircle, ArrowLeft, ShieldCheck } from 'lucide-react'
+import { fetchAuditLog, verifyAuditChain } from '../api/client'
+import type { ChainVerifyResult } from '../api/client'
 
 interface AuditEntry {
   id: number
@@ -22,6 +23,8 @@ export default function AuditLog({ onBack }: Props) {
   const [entries, setEntries] = useState<AuditEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<number | null>(null)
+  const [verifying, setVerifying] = useState(false)
+  const [verifyResult, setVerifyResult] = useState<ChainVerifyResult | null>(null)
 
   useEffect(() => {
     fetchAuditLog(50).then(d => {
@@ -29,6 +32,17 @@ export default function AuditLog({ onBack }: Props) {
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
+
+  const handleVerify = async () => {
+    setVerifying(true); setVerifyResult(null)
+    try {
+      setVerifyResult(await verifyAuditChain())
+    } catch {
+      setVerifyResult({ valid: false, total_records: 0, first_broken_index: null, message: 'Verification request failed.' })
+    } finally {
+      setVerifying(false)
+    }
+  }
 
   const decisionColor = (summary: string) => {
     if (summary.includes('APPROVE')) return 'text-green-400'
@@ -55,6 +69,28 @@ export default function AuditLog({ onBack }: Props) {
       <div className="mb-4 px-4 py-3 rounded-lg bg-blue-950/20 border border-blue-800/40 text-xs text-blue-300 font-mono">
         Each record stores <code className="text-blue-200">record_hash = SHA256(prev_hash + entry_uuid + payload)</code>.
         Any modification to a prior record invalidates all subsequent hashes — making the chain tamper-evident.
+      </div>
+
+      {/* Chain verification (auditor's primary control) */}
+      <div className="mb-5 flex flex-col sm:flex-row sm:items-center gap-3">
+        <button
+          onClick={handleVerify}
+          disabled={verifying}
+          className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
+        >
+          <ShieldCheck size={15} className={verifying ? 'animate-pulse' : ''} />
+          {verifying ? 'Verifying chain…' : 'Verify Audit Chain Integrity'}
+        </button>
+        {verifyResult && (
+          <div className={`flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg border ${
+            verifyResult.valid
+              ? 'text-green-400 border-green-800/50 bg-green-950/30'
+              : 'text-red-400 border-red-800/50 bg-red-950/30'
+          }`}>
+            {verifyResult.valid ? <CheckCircle size={13} /> : <XCircle size={13} />}
+            {verifyResult.message}
+          </div>
+        )}
       </div>
 
       {loading ? (

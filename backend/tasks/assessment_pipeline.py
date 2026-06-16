@@ -201,6 +201,8 @@ def run_assessment_pipeline(self, job_id: str, request_data: dict) -> dict:
     _pub(job_id, "fusion", 88, "Computing trust score…")
 
     # ── Stage 6: Fusion ──────────────────────────────────────────────────────
+    # Prefer admin-tuned weights/thresholds (set via the Admin Console and
+    # persisted in Redis); fall back to compile-time defaults from settings.
     weights = {
         "document":       settings.weight_document,
         "biometric":      settings.weight_biometric,
@@ -213,6 +215,14 @@ def run_assessment_pipeline(self, job_id: str, request_data: dict) -> dict:
         "step_up":        settings.threshold_step_up,
         "manual_review":  settings.threshold_manual_review,
     }
+    try:
+        raw_cfg = _get_sync_redis().get("runtime_config")
+        if raw_cfg:
+            runtime_cfg = json.loads(raw_cfg)
+            weights.update(runtime_cfg.get("weights", {}))
+            thresholds.update(runtime_cfg.get("thresholds", {}))
+    except Exception as e:
+        logger.warning(f"runtime_config load failed: {e}; using defaults")
 
     pipeline = {
         "document":       doc_result,
