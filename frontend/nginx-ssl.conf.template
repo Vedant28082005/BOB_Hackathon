@@ -1,0 +1,21 @@
+# HTTPS server (port 443). Rendered by docker-entrypoint.sh ONLY when a
+# Cloudflare Origin Certificate is mounted at /etc/nginx/certs. Use with
+# Cloudflare SSL/TLS mode "Full (strict)".
+server {
+    listen 443 ssl;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    ssl_certificate     /etc/nginx/certs/origin.pem;
+    ssl_certificate_key /etc/nginx/certs/origin.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    include /etc/nginx/app_locations.inc;
+
+    client_max_body_size 20M;
+
+    gzip on;
+    gzip_types text/plain application/javascript application/json text/css;
+}

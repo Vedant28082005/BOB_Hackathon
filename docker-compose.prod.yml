@@ -176,6 +176,11 @@ services:
       PORT: "80"
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      # Cloudflare Origin Certificate (origin.pem + origin.key). HTTPS activates
+      # automatically when these exist; harmless empty mount otherwise.
+      - ./certs:/etc/nginx/certs:ro
     depends_on:
       - backend
 
